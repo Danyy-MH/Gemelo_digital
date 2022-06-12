@@ -17,7 +17,7 @@ from xarm.wrapper import XArmAPI
 robot_is_on = True
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
-camera_data = [0, 0, 0, 0, 0]
+camera_data = [0, 0, 0]
 sensor_x = float(-110.0)
 sensor_y = float(369)
 pick_motor = [0 ,0, 0]
@@ -92,6 +92,13 @@ def get_data_from_camera():
     elif angle_ref < -90:
         angle_ref += 90
 
+    if angle_ref > 0:
+        comp_x = -6*math.sin(abs(angle_ref))
+        comp_y = 6*math.cos(abs(angle_ref)) + 4
+    else:
+        comp_x = -6*math.sin(abs(angle_ref)) - 19
+        comp_y = 6*math.cos(abs(angle_ref)) + 8
+
     # Cálculo a mm con respecto al sensor foto-eléctrico
     x_ref = float(data_str[3])
     y_ref = data_str[4]
@@ -99,9 +106,9 @@ def get_data_from_camera():
     x_motor -= x_ref
     y_motor -= y_ref
 
-    comp_x = -7*math.sin(abs(angle_ref))
+    comp_x = -6*math.sin(abs(angle_ref))
     
-    comp_y = 7*math.cos(abs(angle_ref))
+    comp_y = 6*math.cos(abs(angle_ref)) + 4
     
 
     x_mm = x_motor*px_to_mm
@@ -112,6 +119,9 @@ def get_data_from_camera():
     print('Ángulo: ', angle_ref)
     print('Compensación en x: ', comp_x)
     print('Compensación en y: ', comp_y)
+
+    
+
 
     return x_mm, y_mm, angle_ref, comp_x, comp_y
 
@@ -200,7 +210,7 @@ while True:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 220, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
@@ -235,7 +245,7 @@ while True:
                     params['quit'] = True
                     pprint('set_servo_angle, code={}'.format(code))
             if arm.error_code == 0 and not params['quit']:
-                code = arm.set_servo_angle(angle=[-31.6, -7.6, -22.6, -0.3, 32.7, 11.5], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+                code = arm.set_servo_angle(angle=[-31.6, -9, -22.8, -0.3, 34.3, 11.5], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
                 if code != 0:
                     params['quit'] = True
                     pprint('set_servo_angle, code={}'.format(code))
