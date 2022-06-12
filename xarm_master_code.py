@@ -86,11 +86,14 @@ def get_data_from_camera():
     y_motor = float(data_str[1])
 
     angle_ref = float(data_str[2])
+    print('Original angle: ', angle_ref)
 
     if angle_ref > 90:
-        angle_ref -= 90
+        angle_ref -= 180
     elif angle_ref < -90:
         angle_ref += 90
+    elif angle_ref < 90 and angle_ref > -90:
+        angle_ref -= 90
 
     # Cálculo a mm con respecto al sensor foto-eléctrico
     x_ref = float(data_str[3])
@@ -99,9 +102,11 @@ def get_data_from_camera():
     x_motor -= x_ref
     y_motor -= y_ref
 
-    comp_x = -7*math.sin(abs(angle_ref))
+    tcp_error = 6
+
+    comp_x = -tcp_error*math.sin(abs(angle_ref))
     
-    comp_y = 7*math.cos(abs(angle_ref))
+    comp_y = tcp_error*math.cos(abs(angle_ref))
     
 
     x_mm = x_motor*px_to_mm
@@ -186,7 +191,7 @@ while True:
         camera_data = get_data_from_camera()
         pick_motor[0] = sensor_x + camera_data[0] - camera_data[3]
         pick_motor[1] = sensor_y + camera_data[1] - camera_data[4]
-        pick_motor[2] = 90 - camera_data[2]
+        pick_motor[2] = 89.8 + camera_data[2]
         print(camera_data)
         print(pick_motor)
         if arm.error_code == 0 and not params['quit']:
@@ -200,7 +205,7 @@ while True:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 220, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
