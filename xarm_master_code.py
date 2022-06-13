@@ -23,6 +23,7 @@ sensor_y = float(369)
 pick_motor = [0 ,0, 0]
 comp_x = 0
 comp_y = 0
+angle = 0
 
 # Conversión de Unidades
 conveyor_l = 100 # [mm]
@@ -80,35 +81,47 @@ def get_data_from_camera():
     data_str = data_str.split(";")
     #print(data_str)
 
-    x_motor = data_str[0]
-    x_motor = float(x_motor[-3:])
+    x_motor = float(data_str[0])
+    # x_motor = float(x_motor[-3:])
 
     y_motor = float(data_str[1])
 
     angle_ref = float(data_str[2])
 
-    if angle_ref > 90:
-        angle_ref -= 90
-    elif angle_ref < -90:
-        angle_ref += 90
+    # if angle_ref > 90:
+    #     angle_ref -= 90
+    # elif angle_ref < -90:
+    #     angle_ref += 90
 
-    if angle_ref > 0:
-        comp_x = -6*math.sin(abs(angle_ref))
-        comp_y = 6*math.cos(abs(angle_ref)) + 4
-    else:
-        comp_x = -6*math.sin(abs(angle_ref)) - 19
-        comp_y = 6*math.cos(abs(angle_ref)) + 8
+    # if angle_ref > 0:
+    #     comp_x = -6*math.sin(abs(angle_ref))
+    #     comp_y = 6*math.cos(abs(angle_ref)) + 4
+    # else:
+    #     comp_x = -6*math.sin(abs(angle_ref)) - 19
+    #     comp_y = 6*math.cos(abs(angle_ref)) + 8
 
     # Cálculo a mm con respecto al sensor foto-eléctrico
     x_ref = float(data_str[3])
-    y_ref = data_str[4]
-    y_ref = float(y_ref[:2])
+    y_ref = float(data_str[4])
+    # y_ref = float(y_ref[:2])
     x_motor -= x_ref
     y_motor -= y_ref
 
-    comp_x = -6*math.sin(abs(angle_ref))
+
+    # Cálculo de ángulo (solo primer cuadrante)
+    if angle_ref >= 0 and angle_ref <= 90:
+        angle = 90 - angle_ref
+    elif angle_ref > 90 and angle_ref <= 180:
+        angle = 180 - angle_ref
+    elif angle_ref > 180 and angle_ref <= 270:
+        angle = 270 - angle_ref
+    elif angle_ref > 270 and angle_ref <= 360:
+        angle = 360 - angle_ref
+
+
+    comp_x = 7*math.sin(abs(angle))
     
-    comp_y = 6*math.cos(abs(angle_ref)) + 4
+    comp_y = 7*math.cos(abs(angle)) # + 4
     
 
     x_mm = x_motor*px_to_mm
@@ -116,14 +129,14 @@ def get_data_from_camera():
 
     print('Posición en x: ', x_mm)
     print('Posición en y: ', y_mm)
-    print('Ángulo: ', angle_ref)
+    print('Ángulo: ', angle)
     print('Compensación en x: ', comp_x)
     print('Compensación en y: ', comp_y)
 
     
 
 
-    return x_mm, y_mm, angle_ref, comp_x, comp_y
+    return x_mm, y_mm, angle, comp_x, comp_y
 
 arm = XArmAPI('192.168.1.206', do_not_open=True)
 arm.register_error_warn_changed_callback(hangle_err_warn_changed)
@@ -196,7 +209,7 @@ while True:
         camera_data = get_data_from_camera()
         pick_motor[0] = sensor_x + camera_data[0] - camera_data[3]
         pick_motor[1] = sensor_y + camera_data[1] - camera_data[4]
-        pick_motor[2] = 90 - camera_data[2]
+        pick_motor[2] = camera_data[2]
         print(camera_data)
         print(pick_motor)
         if arm.error_code == 0 and not params['quit']:
