@@ -84,13 +84,13 @@ def get_data_from_camera():
     data_str = data_str.split(";")
     #print(data_str)
 
-    x_motor = float(data_str[0])
+    x_motor = data_str[0]
+    x_motor = float(x_motor[-3:])
+
     y_motor = float(data_str[1])
-    angle_ref = float(data_str[2])
-    x_ref = float(data_str[3])
-    y_ref = float(data_str[4])
 
-
+    angle_ref = abs(float(data_str[2]))
+    # Cálculo a mm con respecto al sensor foto-eléctrico
     x_motor -= x_center
     y_motor -= y_center
 
@@ -106,9 +106,9 @@ def get_data_from_camera():
         angle = 360 - angle_ref
 
 
-    comp_x = 7*math.sin(abs(angle))
+    # comp_x = 7*math.sin(abs(angle))
     
-    comp_y = 7*math.cos(abs(angle)) # + 4
+    # comp_y = 7*math.cos(abs(angle)) # + 4
     
 
     x_mm = x_motor*px_to_mm
@@ -117,12 +117,11 @@ def get_data_from_camera():
     print('Posición en x: ', x_mm)
     print('Posición en y: ', y_mm)
     print('Ángulo: ', angle)
-    print('Compensación en x: ', comp_x)
-    print('Compensación en y: ', comp_y)
 
 
 
-    return x_mm, y_mm, angle, comp_x, comp_y
+
+    return x_mm, y_mm, angle,
 
 arm = XArmAPI('192.168.1.206', do_not_open=True)
 arm.register_error_warn_changed_callback(hangle_err_warn_changed)
@@ -197,8 +196,8 @@ while True:
                 pprint('set_cgpio_digital, code={}'.format(code))
         ### Take photo and receive data via TCP
         camera_data = get_data_from_camera()
-        pick_motor[0] = sensor_x + camera_data[0] - camera_data[3]
-        pick_motor[1] = sensor_y + camera_data[1] - camera_data[4]
+        pick_motor[0] = sensor_x + camera_data[0] 
+        pick_motor[1] = sensor_y + camera_data[1] 
         pick_motor[2] = camera_data[2]
         print(camera_data)
         print(pick_motor)
