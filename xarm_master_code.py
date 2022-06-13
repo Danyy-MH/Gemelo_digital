@@ -12,14 +12,19 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 
 from xarm.wrapper import XArmAPI
 
+XArmAPI.tcp_offset(6.3)
+
 # Definición de variables
 
 robot_is_on = True
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
 camera_data = [0, 0, 0]
-sensor_x = float(-110.0)
-sensor_y = float(369)
+set_position_x = -68.3
+set_position_y = 334.8
+x_center = 640
+y_center = 512
+cam_offset = 0
 pick_motor = [0 ,0, 0]
 comp_x = 0
 comp_y = 0
@@ -82,30 +87,14 @@ def get_data_from_camera():
     #print(data_str)
 
     x_motor = float(data_str[0])
-    # x_motor = float(x_motor[-3:])
-
     y_motor = float(data_str[1])
-
     angle_ref = float(data_str[2])
-
-    # if angle_ref > 90:
-    #     angle_ref -= 90
-    # elif angle_ref < -90:
-    #     angle_ref += 90
-
-    # if angle_ref > 0:
-    #     comp_x = -6*math.sin(abs(angle_ref))
-    #     comp_y = 6*math.cos(abs(angle_ref)) + 4
-    # else:
-    #     comp_x = -6*math.sin(abs(angle_ref)) - 19
-    #     comp_y = 6*math.cos(abs(angle_ref)) + 8
-
-    # Cálculo a mm con respecto al sensor foto-eléctrico
     x_ref = float(data_str[3])
     y_ref = float(data_str[4])
-    # y_ref = float(y_ref[:2])
-    x_motor -= x_ref
-    y_motor -= y_ref
+
+
+    x_motor -= x_center
+    y_motor -= y_center
 
 
     # Cálculo de ángulo (solo primer cuadrante)
@@ -133,7 +122,6 @@ def get_data_from_camera():
     print('Compensación en x: ', comp_x)
     print('Compensación en y: ', comp_y)
 
-    
 
 
     return x_mm, y_mm, angle, comp_x, comp_y
