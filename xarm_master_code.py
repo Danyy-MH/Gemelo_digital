@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 
 from xarm.wrapper import XArmAPI
 
-XArmAPI.tcp_offset(6.3)
+
 
 # Definición de variables
 
@@ -26,8 +26,6 @@ x_center = 640
 y_center = 512
 cam_offset = 0
 pick_motor = [0 ,0, 0]
-comp_x = 0
-comp_y = 0
 angle = 0
 
 # Conversión de Unidades
@@ -165,6 +163,10 @@ if not params['quit']:
     params['variables']['contador'] = 0
 if not params['quit']:
     params['variables']['move_robot'] = False
+if not params['quit']:
+    arm.set_tcp_offset([6.3, 0, 0, 0, 0, 0], wait=True)
+    arm.set_state(0)
+    time.sleep(0.5)
 while True:
     if params['quit']:
         break
