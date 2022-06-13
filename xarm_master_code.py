@@ -19,12 +19,13 @@ from xarm.wrapper import XArmAPI
 robot_is_on = True
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
-camera_data = [0, 0, 0]
-set_position_x = -68.3
-set_position_y = 334.8
+camera_data = [0, 0, 0] 
 x_center = 640
 y_center = 512
-cam_offset = 0
+
+x_start = -68.3
+y_start = 334.8
+cam_offset = 9
 pick_motor = [0 ,0, 0]
 angle = 0
 
@@ -95,15 +96,15 @@ def get_data_from_camera():
     y_motor -= y_center
 
 
-    # Cálculo de ángulo (solo primer cuadrante)
-    if angle_ref >= 0 and angle_ref <= 90:
-        angle = 90 - angle_ref
-    elif angle_ref > 90 and angle_ref <= 180:
-        angle = 180 - angle_ref
-    elif angle_ref > 180 and angle_ref <= 270:
-        angle = 270 - angle_ref
-    elif angle_ref > 270 and angle_ref <= 360:
-        angle = 360 - angle_ref
+    # #Cálculo de ángulo (solo primer cuadrante)
+    # if angle_ref >= 0 and angle_ref <= 90:
+    #     angle = 90 - angle_ref
+    # if angle_ref > 90 and angle_ref <= 180:
+    #     angle = 180 - angle_ref
+    # elif angle_ref < 0 and angle_ref >= -90:
+    #     angle = angle_ref + 90
+    # elif angle_ref < -90 and angle_ref >= -180:
+    #     angle = angle_ref + 180
 
 
     # comp_x = 7*math.sin(abs(angle))
@@ -121,7 +122,7 @@ def get_data_from_camera():
 
 
 
-    return x_mm, y_mm, angle,
+    return x_mm, y_mm, angle_ref
 
 arm = XArmAPI('192.168.1.206', do_not_open=True)
 arm.register_error_warn_changed_callback(hangle_err_warn_changed)
@@ -172,11 +173,11 @@ while True:
     if arm.get_cgpio_digital(0)[1] == 0 and params['variables'].get('move_robot', 0) == True:
         if arm.error_code == 0 and not params['quit']:
             arm.set_pause_time(1)
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_servo_angle(angle=[0.0, -24.6, -33.1, 0.0, 60.2, -0.1], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_servo_angle, code={}'.format(code))
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_servo_angle(angle=[0.0, -24.6, -33.1, 0.0, 60.2, -0.1], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_servo_angle, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
             code = arm.set_position(*[-68.3, 334.8, 434.4, -179.7, 1.2, 89.8], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
@@ -196,13 +197,18 @@ while True:
                 pprint('set_cgpio_digital, code={}'.format(code))
         ### Take photo and receive data via TCP
         camera_data = get_data_from_camera()
-        pick_motor[0] = sensor_x + camera_data[0] 
-        pick_motor[1] = sensor_y + camera_data[1] 
-        pick_motor[2] = camera_data[2]
+        pick_motor[0] = x_start + camera_data[0] 
+        pick_motor[1] = y_start + cam_offset + camera_data[1] 
+        pick_motor[2] = 90 - camera_data[2]
         print(camera_data)
         print(pick_motor)
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 300, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[-68.3, 334.8, 434.4, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            if code != 0:
+                params['quit'] = True
+                pprint('set_position, code={}'.format(code))
+        if arm.error_code == 0 and not params['quit']:
+            code = arm.set_position(*[-68.3, pick_motor[1], 250, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
@@ -212,10 +218,11 @@ while True:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
+        arm.disconnect
         if arm.error_code == 0 and not params['quit']:
             arm.set_pause_time(0.5)
         if arm.error_code == 0 and not params['quit']:
