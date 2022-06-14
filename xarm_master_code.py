@@ -25,16 +25,20 @@ y_center = 640
 
 x_start = -68.3
 y_start = 334.8
-cam_offset = 90
+# cam_offset_y = 77
+cam_offset_y = 90
+cam_offset_x = 10
 pick_motor = [0 ,0, 0]
 angle = 0
 x_comp = 0
 y_comp = 0
 
 # Conversión de Unidades
-conveyor_l = 100 # [mm]
-conveyor_l_p = 916 # [px]
-px_to_mm = float(conveyor_l/conveyor_l_p)
+conveyor_l_y = 100 # [mm]
+conveyor_l_x = 100 # [mm]
+conveyor_l_p = 906 # [px]
+px_to_mm_y = float(conveyor_l_y/conveyor_l_p)
+px_to_mm_x = float(conveyor_l_x/conveyor_l_p)
 
 # Datos del servidor de la cámara
 HOST = "192.168.1.126"  # Emulador
@@ -73,6 +77,18 @@ def pprint(*args, **kwargs):
     except:
         print(*args, **kwargs)
 
+def send_data_to_socket():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        #s.settimeout(10)
+        try:
+            s.connect((HOST, PORT))
+            send_com = "cmd LoadVPFile Test.vp"
+            s.send(send_com.encode())
+        except:
+            print("No se recibió data de la cámara")
+    
+
+
 def get_data_from_camera():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(10)
@@ -82,6 +98,7 @@ def get_data_from_camera():
         except:
             print("No se recibió data de la cámara")
 
+    
     # String manipulation
     data_str = str(data)
     data_str = data_str.split(";")
@@ -90,42 +107,26 @@ def get_data_from_camera():
 
     x_motor = float(data_str[1])
     y_motor = data_str[0]
-    y_motor = float(x_motor[-3:])
+    y_motor = float(y_motor[-3:])
 
     angle_ref = float(data_str[2])
     # Cálculo a mm con respecto al sensor foto-eléctrico
-    x_motor = x_center - x_motor
-    y_motor = y_center - y_motor
+    x_motor -= x_center
+    y_motor -= y_center
 
 
     # #Cálculo de ángulo (solo primer cuadrante)
     if angle_ref >= 0 and angle_ref <= 90:
         angle = 90 - angle_ref
-        x_comp = 0
-        y_comp = 0
     elif angle_ref < 0 and angle_ref >= -90:
         angle = abs(angle_ref) + 90
-        x_comp = 0 #7
-        y_comp = 0 #-1
-        
-        
 
-
-
-    # comp_x = 7*math.sin(abs(angle))
-    
-    # comp_y = 7*math.cos(abs(angle)) # + 4
-    
-
-    x_mm = x_motor*px_to_mm
-    y_mm = y_motor*px_to_mm
+    x_mm = x_motor*px_to_mm_x
+    y_mm = y_motor*px_to_mm_y
 
     print('Posición en x: ', x_mm)
     print('Posición en y: ', y_mm)
     print('Ángulo: ', angle)
-
-
-
 
     return x_mm, y_mm, angle, x_comp, y_comp
 arm = XArmAPI('192.168.1.206', do_not_open=True)
@@ -200,9 +201,10 @@ while True:
                 params['quit'] = True
                 pprint('set_cgpio_digital, code={}'.format(code))
         ### Take photo and receive data via TCP
+        send_data_to_socket()
         camera_data = get_data_from_camera()
-        pick_motor[0] = x_start + camera_data[0] 
-        pick_motor[1] = y_start + cam_offset + camera_data[1] 
+        pick_motor[0] = x_start + cam_offset_x + camera_data[0] 
+        pick_motor[1] = y_start + cam_offset_y + camera_data[1] 
         pick_motor[2] = camera_data[2] 
         print(camera_data)
         print(pick_motor)
@@ -233,9 +235,7 @@ while True:
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
-        # states = arm.get_joint_states(num=3)
-        # print("joint 3 states:" + str(states[0]))
-        # arm.disconnect()
+        #arm.disconnect()
         if arm.error_code == 0 and not params['quit']:
             arm.set_pause_time(0.5)
         if arm.error_code == 0 and not params['quit']:
@@ -262,15 +262,15 @@ while True:
                     params['quit'] = True
                     pprint('set_servo_angle, code={}'.format(code))
             if arm.error_code == 0 and not params['quit']:
-                code = arm.set_servo_angle(angle=[-32.8, -19.2, -22.3, -0.3, 42.1, 13.4], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+                code = arm.set_position(*[274.8, -172.1, 345.3, 180, 0, -44.6], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
                 if code != 0:
                     params['quit'] = True
-                    pprint('set_servo_angle, code={}'.format(code))
+                    pprint('set_position, code={}'.format(code))
             if arm.error_code == 0 and not params['quit']:
-                code = arm.set_servo_angle(angle=[-31.6, -9, -22.8, -0.3, 34.3, 11.5], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+                code = arm.set_position(*[274.8, -172.1, 226, 180, 0, -44.6], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
                 if code != 0:
                     params['quit'] = True
-                    pprint('set_servo_angle, code={}'.format(code))
+                    pprint('set_position, code={}'.format(code))
             if arm.error_code == 0 and not params['quit']:
                 code = arm.set_cgpio_digital(0, 0, delay_sec=0)
                 if code != 0:
@@ -279,10 +279,10 @@ while True:
             if arm.error_code == 0 and not params['quit']:
                 arm.set_pause_time(1)
             if arm.error_code == 0 and not params['quit']:
-                code = arm.set_servo_angle(angle=[-32.8, -19.2, -22.3, -0.3, 42.1, 13.4], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+                code = arm.set_position(*[274.8, -172.1, 345.3, 180, 0, -44.6], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
                 if code != 0:
                     params['quit'] = True
-                    pprint('set_servo_angle, code={}'.format(code))
+                    pprint('set_position, code={}'.format(code))
             if arm.error_code == 0 and not params['quit']:
                 code = arm.set_servo_angle(angle=[0.0, -24.6, -33.1, 0.0, 60.2, -0.1], speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
                 if code != 0:
@@ -290,6 +290,7 @@ while True:
                     pprint('set_servo_angle, code={}'.format(code))
             if not params['quit']:
                 params['variables']['move_robot'] = False
+            arm.disconnect()
 
         #########################################
 
