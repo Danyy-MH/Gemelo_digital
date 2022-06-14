@@ -39,7 +39,7 @@ comp_x = 0
 comp_y = 0
  
 ensamble_in_revision = {
-    'pos1': [False, [1, 2, 3, 4, 5, 6]],
+    'pos1': [False, [272.8 , -170.9, 213.6, 180, 0, -43.5]],
     'pos2': [False, [1, 2, 3, 4, 5, 6]],
     'pos3': [False, [1, 2, 3, 4, 5, 6]],
 }
