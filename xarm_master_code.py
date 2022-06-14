@@ -25,9 +25,11 @@ y_center = 512
 
 x_start = -68.3
 y_start = 334.8
-cam_offset = 9
+cam_offset = 90
 pick_motor = [0 ,0, 0]
 angle = 0
+x_comp = 0
+y_comp = 0
 
 # Conversión de Unidades
 conveyor_l = 100 # [mm]
@@ -90,21 +92,24 @@ def get_data_from_camera():
 
     y_motor = float(data_str[1])
 
-    angle_ref = abs(float(data_str[2]))
+    angle_ref = float(data_str[2])
     # Cálculo a mm con respecto al sensor foto-eléctrico
-    x_motor -= x_center
-    y_motor -= y_center
+    x_motor = x_center - x_motor
+    y_motor = y_center - y_motor
 
 
     # #Cálculo de ángulo (solo primer cuadrante)
-    # if angle_ref >= 0 and angle_ref <= 90:
-    #     angle = 90 - angle_ref
-    # if angle_ref > 90 and angle_ref <= 180:
-    #     angle = 180 - angle_ref
-    # elif angle_ref < 0 and angle_ref >= -90:
-    #     angle = angle_ref + 90
-    # elif angle_ref < -90 and angle_ref >= -180:
-    #     angle = angle_ref + 180
+    if angle_ref >= 0 and angle_ref <= 90:
+        angle = 90 - angle_ref
+        x_comp = 0
+        y_comp = 0
+    elif angle_ref < 0 and angle_ref >= -90:
+        angle = abs(angle_ref) + 90
+        x_comp = 0 #7
+        y_comp = 0 #-1
+        
+        
+
 
 
     # comp_x = 7*math.sin(abs(angle))
@@ -122,8 +127,7 @@ def get_data_from_camera():
 
 
 
-    return x_mm, y_mm, angle_ref
-
+    return x_mm, y_mm, angle, x_comp, y_comp
 arm = XArmAPI('192.168.1.206', do_not_open=True)
 arm.register_error_warn_changed_callback(hangle_err_warn_changed)
 arm.connect()
@@ -179,7 +183,7 @@ while True:
         #         params['quit'] = True
         #         pprint('set_servo_angle, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[-68.3, 334.8, 434.4, -179.7, 1.2, 89.8], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[-68.3, 334.8, 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
@@ -197,32 +201,41 @@ while True:
                 pprint('set_cgpio_digital, code={}'.format(code))
         ### Take photo and receive data via TCP
         camera_data = get_data_from_camera()
-        pick_motor[0] = x_start + camera_data[0] 
-        pick_motor[1] = y_start + cam_offset + camera_data[1] 
-        pick_motor[2] = 90 - camera_data[2]
+        pick_motor[0] = x_start + camera_data[0] + camera_data[3]
+        pick_motor[1] = y_start + cam_offset + camera_data[1] + camera_data[4]
+        pick_motor[2] = camera_data[2] 
         print(camera_data)
         print(pick_motor)
+        
+
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[-68.3, 334.8, 434.4, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[-68.3, pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[-68.3, pick_motor[1], 250, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
         if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -179.7, 1.2, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
             if code != 0:
                 params['quit'] = True
                 pprint('set_position, code={}'.format(code))
-        arm.disconnect
+        if arm.error_code == 0 and not params['quit']:
+            code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            if code != 0:
+                params['quit'] = True
+                pprint('set_position, code={}'.format(code))
+        # states = arm.get_joint_states(num=3)
+        # print("joint 3 states:" + str(states[0]))
+        # arm.disconnect()
         if arm.error_code == 0 and not params['quit']:
             arm.set_pause_time(0.5)
         if arm.error_code == 0 and not params['quit']:
