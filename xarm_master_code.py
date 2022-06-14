@@ -20,8 +20,8 @@ robot_is_on = True
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
 camera_data = [0, 0, 0] 
-x_center = 640
-y_center = 512
+x_center = 512
+y_center = 640
 
 x_start = -68.3
 y_start = 334.8
@@ -87,10 +87,10 @@ def get_data_from_camera():
     data_str = data_str.split(";")
     #print(data_str)
 
-    x_motor = data_str[0]
-    x_motor = float(x_motor[-3:])
 
-    y_motor = float(data_str[1])
+    x_motor = float(data_str[1])
+    y_motor = data_str[0]
+    y_motor = float(x_motor[-3:])
 
     angle_ref = float(data_str[2])
     # Cálculo a mm con respecto al sensor foto-eléctrico
@@ -201,8 +201,8 @@ while True:
                 pprint('set_cgpio_digital, code={}'.format(code))
         ### Take photo and receive data via TCP
         camera_data = get_data_from_camera()
-        pick_motor[0] = x_start + camera_data[0] + camera_data[3]
-        pick_motor[1] = y_start + cam_offset + camera_data[1] + camera_data[4]
+        pick_motor[0] = x_start + camera_data[0] 
+        pick_motor[1] = y_start + cam_offset + camera_data[1] 
         pick_motor[2] = camera_data[2] 
         print(camera_data)
         print(pick_motor)
