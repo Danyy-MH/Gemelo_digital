@@ -32,7 +32,7 @@ from xarm.wrapper import XArmAPI
 state = 0 # Variable de estados del AF 
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
-camera_data = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+camera_data = [0, 0, 0, 0, 0, 0, 0, 0]
 '''
     0: x
     1: y
@@ -147,6 +147,8 @@ def get_data_from_camera():
     data_str = str(data)
     data_str = data_str.split(";")
 
+    print("TCP output ", data_str)
+
     x_motor = float(data_str[1])
     y_motor = data_str[0]
     y_motor = float(y_motor[-3:])
@@ -169,15 +171,16 @@ def get_data_from_camera():
     print('Posición en y: ', y_mm)
     print('Ángulo: ', angle)
 
-    qr = data_str[3]
-    color_ensamble = data_str[4]
-    four_tornillos = data_str[5]
-    color_tornillos = data_str[6]
-    allen = data_str[7]
-    avg_inten = data_str[8]
+    qr = float(data_str[3])
+    four_tornillos = float(data_str[4])
+    color_tornillos = float(data_str[5])
+    color_motor = float(data_str[6])
+    color_reductor = data_str[7]
+    color_reductor = float(color_reductor[:6])
+    print("Lectura exitosa de datos ")
 
-    return x_mm, y_mm, angle, qr, color_ensamble, four_tornillos, color_tornillos, allen, avg_inten
-
+    return x_mm, y_mm, angle, qr, four_tornillos, color_tornillos, color_motor, color_reductor
+    
 def take_photo():
     if arm.error_code == 0 and not params['quit']:
         code = arm.set_cgpio_digital(5, 1, delay_sec=0)
@@ -216,6 +219,7 @@ def open_gripper():
 
 def pick_up_motor():
     # Asignando offset
+    print("Camera data inside pick_up_motor: ", camera_data)
     pick_motor[0] = x_start + cam_offset_x + camera_data[0] 
     pick_motor[1] = y_start + cam_offset_y + camera_data[1] 
     pick_motor[2] = camera_data[2]
@@ -229,8 +233,8 @@ def pick_up_motor():
 
 # Tomar ensamble correcto
 def tom_co_pos(color_detection):
-    print('')
-    if color_detection > 0 and color_detection < 30:
+    print('Moviendo ensamble')
+    if color_detection > 12 and color_detection < 40:
         print('Ensamble rojo detectado')
         if ensamble_in_revision['pos1'][0] == False:
             print('Moviendo a base roja...')
@@ -253,7 +257,7 @@ def tom_co_pos(color_detection):
             print('Proceder a revisión de ensambles en las bases')
 
             revision_ensamble()
-    elif color_detection >= 30 and color_detection < 60:
+    elif color_detection < 12:
         print('Ensamble verde detectado')
         if ensamble_in_revision['pos2'][0] == False:
             print('Moviendo a base verde...')
@@ -276,7 +280,7 @@ def tom_co_pos(color_detection):
             print('Proceder a revisión de ensambles en las bases')
 
             revision_ensamble()
-    elif color_detection >= 60 and color_detection < 100:
+    elif color_detection >= 40:
         print('Ensamble amarillo detectado')
         if ensamble_in_revision['pos3'][0] == False:
             print('Moviendo a base amarilla...')
@@ -308,16 +312,19 @@ def take_out_ensamble():
 
     recepcion_ensambles()
 
-def get_coordinates(bool):
+def get_coordinates():
     move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
-    average_intensity = camera_data[8]
+    global camera_data
+    print("Cam data inside get_coordinates: ", camera_data)
+    qr_value = camera_data[3]
+    average_intensity = camera_data[6]
     take_photo()
     print('Tomando fotos...')
-    camera_data = get_data_from_camera()
+    tcp_data = get_data_from_camera()
 
-    if bool == 1:
+    if qr_value == 1:
         tom_co_pos(average_intensity)
-    elif bool == 0:
+    else:
         take_out_ensamble()
 
 def move_to_paletizado():
@@ -408,7 +415,7 @@ def move_to_paletizado():
                 ensamble_in_paletizado3['pos4'][0] = False
             ensamble_in_revision['pos3'][0] = False
         print('to recepción de motores')
-        recepcion_ensambles
+        recepcion_ensambles()
 
 def revision_ensamble():
     '''
@@ -464,38 +471,33 @@ def recepcion_ensambles():
             if arm.error_code == 0 and not params['quit']:
                 arm.set_pause_time(1)
             # home general del robot
-            move_angle(home_general)
+            # move_angle(home_general)
 
             # Tomar fotos para detectar QR del ensamble 
 
-            move_axis([293.6, 392.2, 94, -90, 0, 90])
+            move_axis([240.2, 331.2, 88, -90, 0, 90])
             take_photo()
             print('Tomando foto...')
+            global camera_data
             camera_data = get_data_from_camera()
-            try:
-                camera_qr = camera_data[3]
-                if camera_qr == 1:
-                    print('El ensamble pertence a la línea de producción')
-                    get_coordinates(camera_qr)
-                else:
-                    print('El ensamble no pertence a la línea de producción')
-                    get_coordinates(camera_qr)
-            except:
-                move_axis([278, 464.2, 92.9, -90, 0, 113])
+            camera_qr = camera_data[3]
+            if camera_qr == 1:
+                print('El ensamble pertence a la línea de producción')
+                get_coordinates()
+            else:
+                print('QR no detectado')
+                move_axis([254.2, 454.1, 88, -90, 0, 111])
                 take_photo()
                 print('Tomando foto...')
+            
                 camera_data = get_data_from_camera()
-                try:
-                    camera_qr = camera_data[3]
-                    if camera_qr == 1:
-                        print('El ensamble pertence a la línea de producción')
-                        get_coordinates(camera_qr)
-                    else:
-                        print('El ensamble no pertence a la línea de producción')
-                        get_coordinates(camera_qr)
-                except:
-                    print('QR no detectado, ensamble fuera de línea')
-                    get_coordinates(camera_qr)
+                camera_qr = camera_data[3]
+                if float(camera_qr) == 1:
+                    print('El ensamble pertence a la línea de producción')
+                    get_coordinates()
+                else:
+                    print('El ensamble no pertenece a la línea de producción')
+                    get_coordinates()
         elif arm.get_cgpio_digital(0)[1] == 1:
             if not params['quit']:
                 params['variables']['move_robot'] = True
