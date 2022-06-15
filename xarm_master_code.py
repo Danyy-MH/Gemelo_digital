@@ -87,7 +87,12 @@ def send_data_to_socket():
         except:
             print("No se recibió data de la cámara")
     
-
+def move_axis(lista):
+     if arm.error_code == 0 and not params['quit']:
+            code = arm.set_position(*lista, speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            if code != 0:
+                params['quit'] = True
+                pprint('set_position, code={}'.format(code))
 
 def get_data_from_camera():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -210,32 +215,37 @@ while True:
         print(pick_motor)
         
 
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[-68.3, pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_position, code={}'.format(code))
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_position, code={}'.format(code))
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_position, code={}'.format(code))
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_position, code={}'.format(code))
-        if arm.error_code == 0 and not params['quit']:
-            code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
-            if code != 0:
-                params['quit'] = True
-                pprint('set_position, code={}'.format(code))
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_position(*[-68.3, pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_position, code={}'.format(code))
+        move_axis([-68.3, pick_motor[1], 434.4, -180, 0, 90])
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, 90], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_position, code={}'.format(code))
+        move_axis([pick_motor[0], pick_motor[1], 434.4, -180, 0, 90])
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_position(*[pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_position, code={}'.format(code))
+        move_axis([pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]])
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_position(*[pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_position, code={}'.format(code))
+        move_axis([pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]])
+        # if arm.error_code == 0 and not params['quit']:
+        #     code = arm.set_position(*[pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]], speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+        #     if code != 0:
+        #         params['quit'] = True
+        #         pprint('set_position, code={}'.format(code))
         #arm.disconnect()
+        move_axis([pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]])
         if arm.error_code == 0 and not params['quit']:
             arm.set_pause_time(0.5)
         if arm.error_code == 0 and not params['quit']:
