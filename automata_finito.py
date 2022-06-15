@@ -31,13 +31,31 @@ from xarm.wrapper import XArmAPI
 state = 0 # Variable de estados del AF 
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
-camera_data = [0, 0, 0, 0, 0]
+camera_data = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+'''
+    0: x
+    1: y
+    2: angle
+    3: qr
+    4: pass/fail color ensamble
+    5: pass/fail 4 tornillos
+    6: pass/fail color tornillos
+    7: tentativo: tornillo tipo allen 
+'''
 sensor_x = float(-110.0)
 sensor_y = float(369)
+cam_offset_y = 90
+cam_offset_x = 10
 pick_motor = [0 ,0, 0]
-comp_x = 0
-comp_y = 0
- 
+x_center = 512
+y_center = 640
+x_start = -68.3
+y_start = 334.8
+conveyor_l_y = 100 # [mm]
+conveyor_l_x = 100 # [mm]
+conveyor_l_p = 906 # [px]
+px_to_mm_y = float(conveyor_l_y/conveyor_l_p)
+px_to_mm_x = float(conveyor_l_x/conveyor_l_p)
  
 # Move arc line: presencia, low, high
 ensamble_in_revision = {
@@ -67,19 +85,28 @@ ensamble_in_paletizado3 = {
     'pos4': [False, [194.3, 108.1, 220.9, 180, 0, -1.8], [194.3, 108.1, 345, 180, 0, -1.8]],
     }
 
-# Conversión de Unidades
-conveyor_l = 100 # [mm]
-conveyor_l_p = 916 # [px]
-px_to_mm = float(conveyor_l/conveyor_l_p)
-
 # Datos del servidor de la cámara
 HOST = "192.168.1.126"  # IP Cámara estación 6
 #HOST = "127.0.0.5" # Emulador de de cámara estación 6
 PORT = 20000  # The port used by the server
 
+
 def hangle_err_warn_changed(item):
     print('ErrorCode: {}, WarnCode: {}'.format(item['error_code'], item['warn_code']))
     # TODO：Do different processing according to the error code
+
+# variables del robot
+
+arm = XArmAPI('192.168.1.206', do_not_open=True)
+arm.register_error_warn_changed_callback(hangle_err_warn_changed)
+arm.connect()
+
+# enable motion
+arm.motion_enable(enable=True)
+# set mode: position control mode
+arm.set_mode(0)
+# set state: sport state
+arm.set_state(state=0)
 
 def pprint(*args, **kwargs):
     try:
@@ -87,6 +114,116 @@ def pprint(*args, **kwargs):
         print('[{}][{}] {}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())), stack_tuple[1], ' '.join(map(str, args))))
     except:
         print(*args, **kwargs)
+
+def move_axis(lista):
+     if arm.error_code == 0 and not params['quit']:
+            code = arm.set_position(*lista, speed=params['speed'], mvacc=params['acc'], radius=-1.0, wait=True)
+            if code != 0:
+                params['quit'] = True
+                pprint('set_position, code={}'.format(code))
+
+def move_angle(lista):
+    if arm.error_code == 0 and not params['quit']:
+                code = arm.set_servo_angle(angle=lista, speed=params['angle_speed'], mvacc=params['angle_acc'], wait=True, radius=-1.0)
+                if code != 0:
+                    params['quit'] = True
+                    pprint('set_servo_angle, code={}'.format(code))
+
+def get_data_from_camera():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(10)
+        try:
+            s.connect((HOST, PORT))
+            data = s.recv(1024)
+        except:
+            print("No se recibió data de la cámara")
+
+    # String manipulation
+    data_str = str(data)
+    data_str = data_str.split(";")
+
+    x_motor = float(data_str[1])
+    y_motor = data_str[0]
+    y_motor = float(y_motor[-3:])
+
+    angle_ref = float(data_str[2])
+    # Cálculo a mm con respecto al centro de cámara
+    x_motor -= x_center
+    y_motor -= y_center
+
+    # #Cálculo de ángulo (solo primer cuadrante)
+    if angle_ref >= 0 and angle_ref <= 90:
+        angle = 90 - angle_ref
+    elif angle_ref < 0 and angle_ref >= -90:
+        angle = abs(angle_ref) + 90
+
+    x_mm = x_motor*px_to_mm_x
+    y_mm = y_motor*px_to_mm_y
+
+    print('Posición en x: ', x_mm)
+    print('Posición en y: ', y_mm)
+    print('Ángulo: ', angle)
+
+    qr = data_str[3]
+    color_ensamble = data_str[4]
+    four_tornillos = data_str[5]
+    color_tornillos = data_str[6]
+    allen = data_str[7]
+
+    return x_mm, y_mm, angle, qr, color_ensamble, four_tornillos, color_tornillos, allen
+
+def take_photo():
+    if arm.error_code == 0 and not params['quit']:
+        code = arm.set_cgpio_digital(5, 1, delay_sec=0)
+        if code != 0:
+            params['quit'] = True
+            pprint('set_cgpio_digital, code={}'.format(code))
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(1)
+    if arm.error_code == 0 and not params['quit']:
+        code = arm.set_cgpio_digital(5, 0, delay_sec=0)
+        if code != 0:
+            params['quit'] = True
+            pprint('set_cgpio_digital, code={}'.format(code))
+
+def close_gripper():
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(0.5)
+    if arm.error_code == 0 and not params['quit']:
+        code = arm.set_cgpio_digital(0, 1, delay_sec=0)
+        if code != 0:
+            params['quit'] = True
+            pprint('set_cgpio_digital, code={}'.format(code))
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(0.5)
+# Tomar ensamble correcto
+def tom_co_pos():
+    print()
+
+def take_out_ensamble():
+    print('')
+    recepcion_ensambles()
+
+def get_coordinates(bool):
+    move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
+    take_photo()
+    camera_data = get_data_from_camera()
+    pick_motor[0] = x_start + cam_offset_x + camera_data[0] 
+    pick_motor[1] = y_start + cam_offset_y + camera_data[1] 
+    pick_motor[2] = camera_data[2]
+    move_axis([-68.3, pick_motor[1], 434.4, -180, 0, 90])
+    move_axis([pick_motor[0], pick_motor[1], 434.4, -180, 0, 90])
+    move_axis([pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]])
+    move_axis([pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]])
+    move_axis([pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]])
+    move_axis([pick_motor[0], pick_motor[1], 300, -179.7, 1.2, pick_motor[2]])
+    close_gripper()
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(1)
+    if bool == 1:
+        print('')
+    elif bool == 0:
+        take_out_ensamble()
 
 def move_to_paletizado():
     '''
@@ -203,7 +340,69 @@ def recepcion_ensambles():
     print('State: Recepcion')
     print('Esperando ensamble en la banda transportadora...')
 
-    # agregar código de recepción de ensambles
+    # Parámetros iniciales del Robot
+
+    if not params['quit']:
+        params['speed'] = 180
+    if not params['quit']:
+        params['acc'] = 200
+    if arm.error_code == 0 and not params['quit']:
+        code = arm.set_cgpio_digital(0, 0, delay_sec=0)
+        if code != 0:
+            params['quit'] = True
+            pprint('set_cgpio_digital, code={}'.format(code))
+    if not params['quit']:
+        params['variables']['contador'] = 0
+    if not params['quit']:
+        params['variables']['move_robot'] = False
+    if not params['quit']:
+        arm.set_tcp_offset([6.3, 0, 0, 0, 0, 0], wait=True)
+        arm.set_state(0)
+        time.sleep(0.5)
+
+    # Loop de recepción de ensambles
+
+    while True:
+        if params['quit']:
+            break
+        if arm.get_cgpio_digital(0)[1] == 0 and params['variables'].get('move_robot', 0) == True:
+            if arm.error_code == 0 and not params['quit']:
+                arm.set_pause_time(1)
+            # home general del robot
+            move_angle([0.0, -24.6, -33.1, 0.0, 60.2, -0.1])
+
+            # Tomar fotos para detectar QR del ensamble 
+
+            move_axis([293.6, 392.2, 94, -90, 0, 90])
+            take_photo()
+            print('Tomando foto...')
+            camera_data = get_data_from_camera()
+            try:
+                camera_qr = camera_data[3]
+                if camera_qr == 1:
+                    print('El ensamble pertence a la línea de producción')
+                    get_coordinates(camera_qr)
+                else:
+                    print('El ensamble no pertence a la línea de producción')
+                    get_coordinates(camera_qr)
+            except:
+                move_axis([278, 464.2, 92.9, -90, 0, 113])
+                take_photo()
+                print('Tomando foto...')
+                camera_data = get_data_from_camera()
+                try:
+                    camera_qr = camera_data[3]
+                    if camera_qr == 1:
+                        print('El ensamble pertence a la línea de producción')
+                        get_coordinates(camera_qr)
+                    else:
+                        print('El ensamble no pertence a la línea de producción')
+                        get_coordinates(camera_qr)
+                except:
+                    print('QR no detectado, ensamble fuera de línea')
+                    get_coordinates(camera_qr)
+
+            
 
 def main():
     print('Inicializando sección de Empaque y Embarque...')
@@ -230,6 +429,7 @@ def main():
                 print('input error, exit')
                 sys.exit(1)
     print('\n')
+
     recepcion_ensambles()
     ########################################################
 
