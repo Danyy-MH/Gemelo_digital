@@ -19,7 +19,7 @@ from xarm.wrapper import XArmAPI
 robot_is_on = True
 variables = {'move_robot': 0, 'contador': 0}
 params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
-camera_data = [0, 0, 0] 
+camera_data = [0, 0, 0, 0, 0, 0, 0, 0] 
 x_center = 512
 y_center = 640
 
