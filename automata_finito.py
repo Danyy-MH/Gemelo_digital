@@ -228,8 +228,9 @@ def pick_up_motor():
     move_axis([pick_motor[0], pick_motor[1], 434.4, -180, 0, pick_motor[2]])
     move_axis([pick_motor[0], pick_motor[1], 250, -180, 0, pick_motor[2]])
     move_axis([pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]])
-    move_axis([pick_motor[0], pick_motor[1], 300, -179.7, 1.2, pick_motor[2]])
     close_gripper()
+    move_axis([pick_motor[0], pick_motor[1], 300, -179.7, 1.2, pick_motor[2]])
+   
 
 # Tomar ensamble correcto
 def tom_co_pos(color_detection):
