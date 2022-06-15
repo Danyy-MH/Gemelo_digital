@@ -16,6 +16,7 @@
 
 from cmath import cos, sin
 import os
+from shutil import move
 import sys
 import time
 import math
@@ -56,6 +57,10 @@ conveyor_l_x = 100 # [mm]
 conveyor_l_p = 906 # [px]
 px_to_mm_y = float(conveyor_l_y/conveyor_l_p)
 px_to_mm_x = float(conveyor_l_x/conveyor_l_p)
+average_intensity = 0
+
+# Posiciones generales del robot
+home_general = [0.0, -24.6, -33.1, 0.0, 60.2, -0.1]
  
 # Move arc line: presencia, low, high
 ensamble_in_revision = {
@@ -169,8 +174,9 @@ def get_data_from_camera():
     four_tornillos = data_str[5]
     color_tornillos = data_str[6]
     allen = data_str[7]
+    avg_inten = data_str[8]
 
-    return x_mm, y_mm, angle, qr, color_ensamble, four_tornillos, color_tornillos, allen
+    return x_mm, y_mm, angle, qr, color_ensamble, four_tornillos, color_tornillos, allen, avg_inten
 
 def take_photo():
     if arm.error_code == 0 and not params['quit']:
@@ -196,18 +202,20 @@ def close_gripper():
             pprint('set_cgpio_digital, code={}'.format(code))
     if arm.error_code == 0 and not params['quit']:
         arm.set_pause_time(0.5)
-# Tomar ensamble correcto
-def tom_co_pos():
-    print()
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(1)
 
-def take_out_ensamble():
-    print('')
-    recepcion_ensambles()
+def open_gripper():
+    if arm.error_code == 0 and not params['quit']:
+        code = arm.set_cgpio_digital(0, 0, delay_sec=0)
+        if code != 0:
+            params['quit'] = True
+            pprint('set_cgpio_digital, code={}'.format(code))
+    if arm.error_code == 0 and not params['quit']:
+        arm.set_pause_time(1)
 
-def get_coordinates(bool):
-    move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
-    take_photo()
-    camera_data = get_data_from_camera()
+def pick_up_motor():
+    # Asignando offset
     pick_motor[0] = x_start + cam_offset_x + camera_data[0] 
     pick_motor[1] = y_start + cam_offset_y + camera_data[1] 
     pick_motor[2] = camera_data[2]
@@ -218,10 +226,97 @@ def get_coordinates(bool):
     move_axis([pick_motor[0], pick_motor[1], 230, -180, 0, pick_motor[2]])
     move_axis([pick_motor[0], pick_motor[1], 300, -179.7, 1.2, pick_motor[2]])
     close_gripper()
-    if arm.error_code == 0 and not params['quit']:
-        arm.set_pause_time(1)
+
+# Tomar ensamble correcto
+def tom_co_pos(color_detection):
+    print('')
+    if color_detection > 0 and color_detection < 30:
+        print('Ensamble rojo detectado')
+        if ensamble_in_revision['pos1'][0] == False:
+            print('Moviendo a base roja...')
+
+            pick_up_motor()
+
+            move_angle(home_general)
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_revision['pos1'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_angle(home_general)
+
+            ensamble_in_revision['pos1'][0] = True
+            recepcion_ensambles()
+        else:
+            print('Ya existe un ensamble en la base roja')
+            print('Proceder a revisión de ensambles en las bases')
+
+            revision_ensamble()
+    elif color_detection >= 30 and color_detection < 60:
+        print('Ensamble verde detectado')
+        if ensamble_in_revision['pos2'][0] == False:
+            print('Moviendo a base verde...')
+
+            pick_up_motor()
+
+            move_angle(home_general)
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_revision['pos2'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_angle(home_general)
+
+            ensamble_in_revision['pos2'][0] = True
+            recepcion_ensambles()
+        else:
+            print('Ya existe un ensamble en la base verde')
+            print('Proceder a revisión de ensambles en las bases')
+
+            revision_ensamble()
+    elif color_detection >= 60 and color_detection < 100:
+        print('Ensamble amarillo detectado')
+        if ensamble_in_revision['pos3'][0] == False:
+            print('Moviendo a base amarilla...')
+
+            pick_up_motor()
+
+            move_angle(home_general)
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_revision['pos3'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_angle(home_general)
+
+            ensamble_in_revision['pos3'][0] = True
+            recepcion_ensambles()
+        else:
+            print('Ya existe un ensamble en la base amarilla')
+            print('Proceder a revisión de ensambles en las bases')
+
+            revision_ensamble()
+
+def take_out_ensamble():
+    print('Colocando ensamble fuera de la línea de producción...')
+
+    pick_up_motor()
+    # agregar coordenadas para poner fuera de la línea de producción
+
+    recepcion_ensambles()
+
+def get_coordinates(bool):
+    move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
+    average_intensity = camera_data[8]
+    take_photo()
+    print('Tomando fotos...')
+    camera_data = get_data_from_camera()
+
     if bool == 1:
-        print('')
+        tom_co_pos(average_intensity)
     elif bool == 0:
         take_out_ensamble()
 
@@ -369,7 +464,7 @@ def recepcion_ensambles():
             if arm.error_code == 0 and not params['quit']:
                 arm.set_pause_time(1)
             # home general del robot
-            move_angle([0.0, -24.6, -33.1, 0.0, 60.2, -0.1])
+            move_angle(home_general)
 
             # Tomar fotos para detectar QR del ensamble 
 
@@ -401,8 +496,12 @@ def recepcion_ensambles():
                 except:
                     print('QR no detectado, ensamble fuera de línea')
                     get_coordinates(camera_qr)
-
-            
+        elif arm.get_cgpio_digital(0)[1] == 1:
+            if not params['quit']:
+                params['variables']['move_robot'] = True
+                pick_motor[0] = 0
+                pick_motor[1] = 0
+                pick_motor[2] = 0            
 
 def main():
     print('Inicializando sección de Empaque y Embarque...')
