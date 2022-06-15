@@ -43,8 +43,6 @@ camera_data = [0, 0, 0, 0, 0, 0, 0, 0]
     6: pass/fail color tornillos
     7: tentativo: tornillo tipo allen 
 '''
-sensor_x = float(-110.0)
-sensor_y = float(369)
 cam_offset_y = 90
 cam_offset_x = 10
 pick_motor = [0 ,0, 0]
@@ -64,9 +62,9 @@ home_general = [0.0, -24.6, -33.1, 0.0, 60.2, -0.1]
  
 # Move arc line: presencia, low, high
 ensamble_in_revision = {
-    'pos1': [False, [274.8, -172.1, 215, 180, 0, -44.6], [274.8, -172.1, 345, 180, 0, -44.6]],
-    'pos2': [False, [325.3, -96.3, 215, 180, 0, -49.7], [325.3, -96.3, 345, 180, 0, -49.7]],
-    'pos3': [False, [222.8, -96.8, 215, 180, 0, -46], [222.8, -96.8, 345, 180, 0, -46]],
+    'pos1': [False, [274.8, -172.1, 223, 180, 0, -44.6], [274.8, -172.1, 345, 180, 0, -44.6]],
+    'pos2': [False, [325.3, -96.3, 223, 180, 0, -49.7], [325.3, -96.3, 345, 180, 0, -49.7]],
+    'pos3': [False, [222.8, -96.8, 223, 180, 0, -46], [222.8, -96.8, 345, 180, 0, -46]],
 }
 
 ensamble_in_paletizado1 = {
@@ -218,6 +216,8 @@ def open_gripper():
         arm.set_pause_time(1)
 
 def pick_up_motor():
+    global camera_data
+    camera_data = get_data_from_camera()
     # Asignando offset
     print("Camera data inside pick_up_motor: ", camera_data)
     pick_motor[0] = x_start + cam_offset_x + camera_data[0] 
@@ -258,8 +258,8 @@ def tom_co_pos(color_detection):
             print('Proceder a revisión de ensambles en las bases')
 
             revision_ensamble()
-    elif color_detection < 12:
-        print('Ensamble verde detectado')
+    elif color_detection >= 40:
+        print('Ensamble amarillo detectado')
         if ensamble_in_revision['pos2'][0] == False:
             print('Moviendo a base verde...')
 
@@ -281,8 +281,8 @@ def tom_co_pos(color_detection):
             print('Proceder a revisión de ensambles en las bases')
 
             revision_ensamble()
-    elif color_detection >= 40:
-        print('Ensamble amarillo detectado')
+    elif color_detection < 12:
+        print('Ensamble verde detectado')
         if ensamble_in_revision['pos3'][0] == False:
             print('Moviendo a base amarilla...')
 
@@ -321,7 +321,7 @@ def get_coordinates():
     average_intensity = camera_data[6]
     take_photo()
     print('Tomando fotos...')
-    tcp_data = get_data_from_camera()
+    
 
     if qr_value == 1:
         tom_co_pos(average_intensity)
@@ -493,7 +493,7 @@ def recepcion_ensambles():
             
                 camera_data = get_data_from_camera()
                 camera_qr = camera_data[3]
-                if float(camera_qr) == 1:
+                if camera_qr == 1:
                     print('El ensamble pertence a la línea de producción')
                     get_coordinates()
                 else:
