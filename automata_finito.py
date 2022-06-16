@@ -60,11 +60,15 @@ average_intensity = 0
 # Posiciones generales del robot
 home_general = [0.0, -24.6, -33.1, 0.0, 60.2, -0.1]
  
-# Move arc line: presencia, low, high
+# Move arc line: presencia, low, high, pick
 ensamble_in_revision = {
-    'pos1': [False, [274.8, -172.1, 223, 180, 0, -44.6], [274.8, -172.1, 345, 180, 0, -44.6]],
-    'pos2': [False, [325.3, -96.3, 223, 180, 0, -49.7], [325.3, -96.3, 345, 180, 0, -49.7]],
-    'pos3': [False, [222.8, -96.8, 223, 180, 0, -46], [222.8, -96.8, 345, 180, 0, -46]],
+    'pos1': [False, [274.8, -172.1, 223, 180, 0, -44.6], [274.8, -172.1, 345, 180, 0, -44.6], [274.8, -172.1, 215, 180, 0, -44.6]],
+    'pos2': [False, [325.3, -96.3, 223, 180, 0, -49.7], [325.3, -96.3, 345, 180, 0, -49.7], [325.3, -96.3, 215, 180, 0, -49.7]],
+    'pos3': [False, [222.8, -96.8, 223, 180, 0, -46], [222.8, -96.8, 345, 180, 0, -46], [222.8, -96.8, 215, 180, 0, -46]],
+    'pos1cam': [184.3, -165.1, 345, 180, 0, 0],
+    'pos2cam': [239.9, -86.1, 345, 180, 0, 0],
+    'pos3cam': [132.2, -88.1, 345, 180, 0, 0],
+    
 }
 
 ensamble_in_paletizado1 = {
@@ -134,12 +138,13 @@ def move_angle(lista):
 
 def get_data_from_camera():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(10)
+        s.settimeout(20000)
         try:
             s.connect((HOST, PORT))
-            data = s.recv(1024)
+            data = s.recv(150)
         except:
             print("No se recibió data de la cámara")
+            data = ["0; 0; 0; 0; 0; 0; 0; 0"]
 
     # String manipulation
     data_str = str(data)
@@ -149,7 +154,10 @@ def get_data_from_camera():
 
     x_motor = float(data_str[1])
     y_motor = data_str[0]
-    y_motor = float(y_motor[-3:])
+    try:
+        y_motor = float(y_motor[-3:])
+    except:
+        y_motor = 0
 
     angle_ref = float(data_str[2])
     # Cálculo a mm con respecto al centro de cámara
@@ -174,8 +182,14 @@ def get_data_from_camera():
     color_tornillos = float(data_str[5])
     color_motor = float(data_str[6])
     color_reductor = data_str[7]
-    color_reductor = float(color_reductor[:6])
-    print("Lectura exitosa de datos ")
+    try:
+        color_reductor = float(color_reductor[:6])
+    except:
+        color_reductor = 0
+    if data == [0, 0, 0, 0, 0, 0, 0, 0]:
+        print('No hubo lectura de la cámara')
+    else:
+        print("Lectura exitosa de datos ")
 
     return x_mm, y_mm, angle, qr, four_tornillos, color_tornillos, color_motor, color_reductor
     
@@ -233,9 +247,11 @@ def pick_up_motor():
    
 
 # Tomar ensamble correcto
-def tom_co_pos(color_detection):
+def tom_co_pos(color_motor, color_reductor):
+    #global camera_data
+    print('State: tom_co_pos')
     print('Moviendo ensamble')
-    if color_detection > 12 and color_detection < 40:
+    if (color_motor > 12 and color_motor < 40) and (color_reductor > 12 and color_reductor < 40):
         print('Ensamble rojo detectado')
         if ensamble_in_revision['pos1'][0] == False:
             print('Moviendo a base roja...')
@@ -252,16 +268,20 @@ def tom_co_pos(color_detection):
             move_angle(home_general)
 
             ensamble_in_revision['pos1'][0] = True
-            recepcion_ensambles()
+            if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
+                revision_ensamble()
+            else:
+                recepcion_ensambles()
         else:
             print('Ya existe un ensamble en la base roja')
             print('Proceder a revisión de ensambles en las bases')
+            move_angle(home_general)
 
             revision_ensamble()
-    elif color_detection >= 40:
+    elif color_motor >= 40 and color_reductor >= 40:
         print('Ensamble amarillo detectado')
         if ensamble_in_revision['pos2'][0] == False:
-            print('Moviendo a base verde...')
+            print('Moviendo a base amarilla...')
 
             pick_up_motor()
 
@@ -275,16 +295,19 @@ def tom_co_pos(color_detection):
             move_angle(home_general)
 
             ensamble_in_revision['pos2'][0] = True
-            recepcion_ensambles()
+            if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
+                revision_ensamble()
+            else:
+                recepcion_ensambles()
         else:
-            print('Ya existe un ensamble en la base verde')
+            print('Ya existe un ensamble en la base amarilla')
             print('Proceder a revisión de ensambles en las bases')
-
+            move_angle(home_general)
             revision_ensamble()
-    elif color_detection < 12:
+    elif color_motor < 12 and color_reductor < 12:
         print('Ensamble verde detectado')
         if ensamble_in_revision['pos3'][0] == False:
-            print('Moviendo a base amarilla...')
+            print('Moviendo a base verde...')
 
             pick_up_motor()
 
@@ -298,125 +321,338 @@ def tom_co_pos(color_detection):
             move_angle(home_general)
 
             ensamble_in_revision['pos3'][0] = True
-            recepcion_ensambles()
+            if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
+                revision_ensamble()
+            else:
+                recepcion_ensambles()
         else:
-            print('Ya existe un ensamble en la base amarilla')
+            print('Ya existe un ensamble en la base verde')
             print('Proceder a revisión de ensambles en las bases')
-
+            move_angle(home_general)
             revision_ensamble()
+    else:
+        print('El color del ensamble no es el mismo')
+
+        pick_up_motor()
+
+        move_angle([100.1, -29.9, -31.1, 0, 61, 12.8])
+        move_angle([-80, -29.9, -31.1, 0, 61, 12.8])
+        open_gripper()
+        move_angle(home_general)
+
+        recepcion_ensambles()
 
 def take_out_ensamble():
+    print('State: take_out_ensamble')
     print('Colocando ensamble fuera de la línea de producción...')
 
     pick_up_motor()
     # agregar coordenadas para poner fuera de la línea de producción
 
+    move_angle([100.1, -29.9, -31.1, 0, 61, 12.8])
+    move_angle([-80, -29.9, -31.1, 0, 61, 12.8])
+    open_gripper()
+    move_angle(home_general)
     recepcion_ensambles()
 
 def get_coordinates():
+    print('State: get_coordinates')
     move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
     global camera_data
     print("Cam data inside get_coordinates: ", camera_data)
     qr_value = camera_data[3]
-    average_intensity = camera_data[6]
+    motor_intensity = camera_data[6]
+    reductor_intensity = camera_data[7]
+    
     take_photo()
     print('Tomando fotos...')
     
 
-    if qr_value == 1:
-        tom_co_pos(average_intensity)
+    if float(qr_value) == 1:
+        tom_co_pos(motor_intensity, reductor_intensity)
     else:
         take_out_ensamble()
 
 def move_to_paletizado():
+    print('State: move_to_paletizado')
     '''
     Estado en el cual, luego de la revisión, se procede a llevar un ensamble correcto a la posición
     más libre de su respectivo color.
     Luego de juntar 4 ensambles del mismo color, se procede a notificar al operario para que se lleve
     y empaque dichos ensambles
     '''
+    global ensamble_in_revision, ensamble_in_paletizado1
+    global ensamble_in_paletizado2, ensamble_in_paletizado3
     if ensamble_in_revision['pos1'][0] == True:
-        print('Moviendo ensamble blanco a zona de Paletizado')
+        print('Moviendo ensamble rojo a zona de Paletizado')
         # Mover ensamble blanco al grupo de 4
         if not ensamble_in_paletizado1['pos1'][0]:
             # Mover a la posición 1
-            print('Ensamble blanco a pos 1')
-            print('Moviendose a: ', ensamble_in_paletizado1['pos1'][1])
+            print('Ensamble rojo a pos 1')
             ensamble_in_paletizado1['pos1'][0] = True
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_revision['pos1'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_paletizado1['pos1'][2])
+            move_axis(ensamble_in_paletizado1['pos1'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado1['pos1'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos1'][0] = False
+            revision_ensamble()
+
         elif not ensamble_in_paletizado1['pos2'][0]:
-            print('Ensamble blanco a pos 2')
+            print('Ensamble rojo a pos 2')
             print('Moviendose a: ', ensamble_in_paletizado1['pos2'][1])
             ensamble_in_paletizado1['pos2'][0] = True
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_revision['pos1'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_paletizado1['pos2'][2])
+            move_axis(ensamble_in_paletizado1['pos2'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado1['pos2'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos1'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado1['pos3'][0]:
-            print('Ensamble blanco a pos 3')
+            print('Ensamble rojo a pos 3')
             print('Moviendose a: ', ensamble_in_paletizado1['pos3'][1])
             ensamble_in_paletizado1['pos3'][0] = True
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_revision['pos1'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_paletizado1['pos3'][2])
+            move_axis(ensamble_in_paletizado1['pos3'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado1['pos3'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos1'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado1['pos4'][0]:
-            print('Ensamble blanco a pos 4')
+            print('Ensamble rojo a pos 4')
             print('Moviendose a: ', ensamble_in_paletizado1['pos4'][1])
             ensamble_in_paletizado1['pos4'][0] = True
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_revision['pos1'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos1'][2])
+            move_axis(ensamble_in_paletizado1['pos4'][2])
+            move_axis(ensamble_in_paletizado1['pos4'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado1['pos4'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos1'][0] = False
             # Mandar mensaje de paletizado completo 
-            print('Proceder a embalaje de Ensamble Blanco')
+            print('Proceder a embalaje de Ensamble rojo')
+            move_angle(home_general)
             ensamble_in_paletizado1['pos1'][0] = False
             ensamble_in_paletizado1['pos2'][0] = False
             ensamble_in_paletizado1['pos3'][0] = False
             ensamble_in_paletizado1['pos4'][0] = False
+            revision_ensamble()
         ensamble_in_revision['pos1'][0] = False
-        if ensamble_in_revision['pos2'][0] == True:
-            print('Moviendo ensamble azul a zona de Paletizado')
-            # Mover ensamble azul al grupo de 4
-            if not ensamble_in_paletizado2['pos1'][0]:
-                # Mover a la posición 1
-                print('Ensamble azul a pos 1')
-                print('Moviendose a: ', ensamble_in_paletizado2['pos1'][1])
-                ensamble_in_paletizado2['pos1'][0] = True
-            elif not ensamble_in_paletizado2['pos2'][0]:
-                print('Ensamble azul a pos 2')
-                print('Moviendose a: ', ensamble_in_paletizado2['pos2'][1])
-                ensamble_in_paletizado2['pos2'][0] = True
-            elif not ensamble_in_paletizado1['pos3'][0]:
-                print('Ensamble azul a pos 3')
-                print('Moviendose a: ', ensamble_in_paletizado2['pos3'][1])
-                ensamble_in_paletizado2['pos3'][0] = True
-            elif not ensamble_in_paletizado2['pos4'][0]:
-                print('Ensamble blanco a pos 4')
-                print('Moviendose a: ', ensamble_in_paletizado2['pos4'][1])
-                ensamble_in_paletizado2['pos4'][0] = True
-                # Mandar mensaje de paletizado completo 
-                print('Proceder a embalaje de Ensamble Azul')
-                ensamble_in_paletizado2['pos1'][0] = False
-                ensamble_in_paletizado2['pos2'][0] = False
-                ensamble_in_paletizado2['pos3'][0] = False
-                ensamble_in_paletizado2['pos4'][0] = False
+    if ensamble_in_revision['pos2'][0] == True:
+        print('Moviendo ensamble amarillo a zona de Paletizado')
+        # Mover ensamble azul al grupo de 4
+        if not ensamble_in_paletizado2['pos1'][0]:
+            # Mover a la posición 1
+            print('Ensamble amarillo a pos 1')
+            print('Moviendose a: ', ensamble_in_paletizado2['pos1'][1])
+            ensamble_in_paletizado2['pos1'][0] = True
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_revision['pos2'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_paletizado2['pos1'][2])
+            move_axis(ensamble_in_paletizado2['pos1'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado2['pos1'][2])
+            move_angle(home_general)
             ensamble_in_revision['pos2'][0] = False
-        if ensamble_in_revision['pos3'][0] == True:
-            print('Moviendo ensamble morado a zona de Paletizado')
-            # Mover ensamble morado al grupo de 4
-            if not ensamble_in_paletizado3['pos1'][0]:
-                print('Ensamble morado a pos 1')
-                print('Moviendose a: ', ensamble_in_paletizado3['pos1'][1])
-                ensamble_in_paletizado1['pos1'][0] = True
-            elif not ensamble_in_paletizado3['pos2'][0]:
-                print('Ensamble morado a pos 2')
-                print('Moviendose a: ', ensamble_in_paletizado3['pos2'][1])
-                ensamble_in_paletizado3['pos2'][0] = True
-            elif not ensamble_in_paletizado3['pos3'][0]:
-                print('Ensamble morado a pos 3')
-                print('Moviendose a: ', ensamble_in_paletizado3['pos3'][1])
-                ensamble_in_paletizado3['pos3'][0] = True
-            elif not ensamble_in_paletizado3['pos4'][0]:
-                print('Ensamble morado a pos 4')
-                print('Moviendose a: ', ensamble_in_paletizado3['pos4'][1])
-                ensamble_in_paletizado1['pos1'][0] = True
-                # Mandar mensaje de paletizado completo 
-                print('Proceder a embalaje de Ensamble morado')
-                ensamble_in_paletizado3['pos1'][0] = False
-                ensamble_in_paletizado3['pos2'][0] = False
-                ensamble_in_paletizado3['pos3'][0] = False
-                ensamble_in_paletizado3['pos4'][0] = False
+            revision_ensamble()
+        elif not ensamble_in_paletizado2['pos2'][0]:
+            print('Ensamble amarillo a pos 2')
+            print('Moviendose a: ', ensamble_in_paletizado2['pos2'][1])
+            ensamble_in_paletizado2['pos2'][0] = True
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_revision['pos2'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_paletizado2['pos2'][2])
+            move_axis(ensamble_in_paletizado2['pos2'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado2['pos2'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos2'][0] = False
+        elif not ensamble_in_paletizado1['pos3'][0]:
+            print('Ensamble amarillo a pos 3')
+            print('Moviendose a: ', ensamble_in_paletizado2['pos3'][1])
+            ensamble_in_paletizado2['pos3'][0] = True
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_revision['pos2'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_paletizado2['pos3'][2])
+            move_axis(ensamble_in_paletizado2['pos3'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado2['pos3'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos2'][0] = False
+        elif not ensamble_in_paletizado2['pos4'][0]:
+            print('Ensamble amarillo a pos 4')
+            print('Moviendose a: ', ensamble_in_paletizado2['pos4'][1])
+            ensamble_in_paletizado2['pos4'][0] = True
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_revision['pos2'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos2'][2])
+            move_axis(ensamble_in_paletizado2['pos4'][2])
+            move_axis(ensamble_in_paletizado2['pos4'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado2['pos4'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos2'][0] = False
+            # Mandar mensaje de paletizado completo 
+            print('Proceder a embalaje de Ensamble amarillo')
+            ensamble_in_paletizado2['pos1'][0] = False
+            ensamble_in_paletizado2['pos2'][0] = False
+            ensamble_in_paletizado2['pos3'][0] = False
+            ensamble_in_paletizado2['pos4'][0] = False
+            revision_ensamble()
+        ensamble_in_revision['pos2'][0] = False
+    if ensamble_in_revision['pos3'][0] == True:
+        print('Moviendo ensamble verde a zona de Paletizado')
+        # Mover ensamble morado al grupo de 4
+        if not ensamble_in_paletizado3['pos1'][0]:
+            print('Ensamble verde a pos 1')
+            print('Moviendose a: ', ensamble_in_paletizado3['pos1'][1])
+            ensamble_in_paletizado3['pos1'][0] = True
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_revision['pos3'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_paletizado3['pos1'][2])
+            move_axis(ensamble_in_paletizado3['pos1'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado3['pos1'][2])
+            move_angle(home_general)
             ensamble_in_revision['pos3'][0] = False
-        print('to recepción de motores')
-        recepcion_ensambles()
+        elif not ensamble_in_paletizado3['pos2'][0]:
+            print('Ensamble verde a pos 2')
+            print('Moviendose a: ', ensamble_in_paletizado3['pos2'][1])
+            ensamble_in_paletizado3['pos2'][0] = True
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_revision['pos3'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_paletizado3['pos2'][2])
+            move_axis(ensamble_in_paletizado3['pos2'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado3['pos2'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos3'][0] = False
+        elif not ensamble_in_paletizado3['pos3'][0]:
+            print('Ensamble verde a pos 3')
+            print('Moviendose a: ', ensamble_in_paletizado3['pos3'][1])
+            ensamble_in_paletizado3['pos3'][0] = True
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_revision['pos3'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_paletizado3['pos3'][2])
+            move_axis(ensamble_in_paletizado3['pos3'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado3['pos3'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos3'][0] = False
+        elif not ensamble_in_paletizado3['pos4'][0]:
+            print('Ensamble verde a pos 4')
+            print('Moviendose a: ', ensamble_in_paletizado3['pos4'][1])
+            ensamble_in_paletizado1['pos1'][0] = True
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_revision['pos3'][3])
+
+            close_gripper()
+
+            move_axis(ensamble_in_revision['pos3'][2])
+            move_axis(ensamble_in_paletizado3['pos4'][2])
+            move_axis(ensamble_in_paletizado3['pos4'][1])
+
+            open_gripper()
+
+            move_axis(ensamble_in_paletizado3['pos4'][2])
+            move_angle(home_general)
+            ensamble_in_revision['pos3'][0] = False
+            # Mandar mensaje de paletizado completo 
+            print('Proceder a embalaje de Ensamble verde')
+            ensamble_in_paletizado3['pos1'][0] = False
+            ensamble_in_paletizado3['pos2'][0] = False
+            ensamble_in_paletizado3['pos3'][0] = False
+            ensamble_in_paletizado3['pos4'][0] = False
+            revision_ensamble()
+        ensamble_in_revision['pos3'][0] = False
+    print('to recepción de motores')
+    recepcion_ensambles()
 
 def revision_ensamble():
     '''
@@ -432,6 +668,72 @@ def revision_ensamble():
     y los demás se colocan fuera del área de trabajo
     '''
     print('State: Revisión')
+
+    global camera_data
+    global ensamble_in_revision
+    while True:
+        if ensamble_in_revision['pos1'][0] == True:
+            move_axis(ensamble_in_revision['pos1cam'])
+            print('Tomando foto...')
+            take_photo()
+            camera_data = get_data_from_camera()
+            screw_all = camera_data[4]
+            screw_color = camera_data[5]
+
+            if screw_all == 1 and screw_color == 1:
+                move_to_paletizado()
+            else:
+                print('Ensamble no cumple condiciones')
+                move_axis(ensamble_in_revision['pos1'][2])
+                move_axis(ensamble_in_revision['pos1'][1])
+                close_gripper()
+                move_axis(ensamble_in_revision['pos1'][2])
+                move_axis([55, -319, 345, 180, 0, -92.8])
+                open_gripper()
+                move_angle(home_general)
+                ensamble_in_revision['pos1'][0] = False
+        elif ensamble_in_revision['pos2'][0] == True:
+            move_axis(ensamble_in_revision['pos2cam'])
+            print('Tomando foto...')
+            take_photo()
+            camera_data = get_data_from_camera()
+            screw_all = camera_data[4]
+            screw_color = camera_data[5]
+
+            if screw_all == 1 and screw_color == 1:
+                move_to_paletizado()
+            else:
+                print('Ensamble no cumple condiciones')
+                move_axis(ensamble_in_revision['pos2'][2])
+                move_axis(ensamble_in_revision['pos2'][1])
+                close_gripper()
+                move_axis(ensamble_in_revision['pos2'][2])
+                move_axis([55, -319, 345, 180, 0, -92.8])
+                open_gripper()
+                move_angle(home_general)
+                ensamble_in_revision['pos2'][0] = False
+        elif ensamble_in_revision['pos3'][0] == True:
+            move_axis(ensamble_in_revision['pos3cam'])
+            print('Tomando foto...')
+            take_photo()
+            camera_data = get_data_from_camera()
+            screw_all = camera_data[4]
+            screw_color = camera_data[5]
+
+            if screw_all == 1 and screw_color == 1:
+                move_to_paletizado()
+            else:
+                print('Ensamble no cumple condiciones')
+                move_axis(ensamble_in_revision['pos3'][2])
+                move_axis(ensamble_in_revision['pos3'][1])
+                close_gripper()
+                move_axis(ensamble_in_revision['pos3'][2])
+                move_axis([55, -319, 345, 180, 0, -92.8])
+                open_gripper()
+                move_angle(home_general)
+                ensamble_in_revision['pos3'][0] = False
+        else:
+            recepcion_ensambles()
 
 def recepcion_ensambles():
     '''
@@ -533,6 +835,5 @@ def main():
     print('\n')
 
     recepcion_ensambles()
-    ########################################################
 
 main()
