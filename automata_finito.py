@@ -34,7 +34,7 @@ from xarm.wrapper import XArmAPI
 
 state = 0 # Variable de estados del AF 
 variables = {'move_robot': 0, 'contador': 0}
-params = {'speed': 100, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
+params = {'speed': 120, 'acc': 2000, 'angle_speed': 20, 'angle_acc': 500, 'events': {}, 'variables': variables, 'callback_in_thread': True, 'quit': False}
 camera_data = [0, 0, 0, 0, 0, 0, 0, 0]
 '''
     0: x
@@ -76,10 +76,10 @@ ensamble_in_revision = {
 }
 
 ensamble_in_paletizado1 = {
-    'pos1': [False, [308.2, 41, 220.9, 180, 0, -5.2], [308.2, 41, 345, 180, 0, -5.2]],
-    'pos2': [False, [252.2, 41, 220.9, 180, 0, -5.2], [252.2, 41, 345, 180, 0, -5.2]],
-    'pos3': [False, [308.2, -15, 220.9, 180, 0, -5.2], [308.2, -15, 345, 180, 0, -5.2]],
-    'pos4': [False, [252.2, -15, 220.9, 180, 0, -5.2], [252.2, -15, 345, 180, 0, -5.2]],
+    'pos1': [False, [303.2, 41, 220.9, 180, 0, -2], [303.2, 41, 345, 180, 0, -2]],
+    'pos2': [False, [247.2, 41, 220.9, 180, 0, -2], [252.2, 41, 345, 180, 0, -2]],
+    'pos3': [False, [300.2, -15, 220.9, 180, 0, -2], [303.2, -15, 345, 180, 0, -2]],
+    'pos4': [False, [244.2, -15, 220.9, 180, 0, -2], [252.2, -15, 345, 180, 0, -2]],
     }
 
 ensamble_in_paletizado2 = {
@@ -282,6 +282,7 @@ def tom_co_pos(color_motor, color_reductor):
                 recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base roja')
+            ensamble_in_conveyor[0] = True
             ensamble_in_conveyor[1] = color_motor
             ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
@@ -311,6 +312,7 @@ def tom_co_pos(color_motor, color_reductor):
                 recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base amarilla')
+            ensamble_in_conveyor[0] = True
             ensamble_in_conveyor[1] = color_motor
             ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
@@ -339,6 +341,7 @@ def tom_co_pos(color_motor, color_reductor):
                 recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base verde')
+            ensamble_in_conveyor[0] = True
             ensamble_in_conveyor[1] = color_motor
             ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
@@ -497,7 +500,7 @@ def move_to_paletizado():
         ensamble_in_revision['pos1'][0] = False
     if ensamble_in_revision['pos2'][0] == True:
         print('Moviendo ensamble amarillo a zona de Paletizado')
-        # Mover ensamble azul al grupo de 4
+        # Mover ensamble amarillo al grupo de 4
         if not ensamble_in_paletizado2['pos1'][0]:
             # Mover a la posición 1
             print('Ensamble amarillo a pos 1')
@@ -538,6 +541,7 @@ def move_to_paletizado():
             move_axis(ensamble_in_paletizado2['pos2'][2])
             move_angle(home_general)
             ensamble_in_revision['pos2'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado1['pos3'][0]:
             print('Ensamble amarillo a pos 3')
             print('Moviendose a: ', ensamble_in_paletizado2['pos3'][1])
@@ -557,6 +561,7 @@ def move_to_paletizado():
             move_axis(ensamble_in_paletizado2['pos3'][2])
             move_angle(home_general)
             ensamble_in_revision['pos2'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado2['pos4'][0]:
             print('Ensamble amarillo a pos 4')
             print('Moviendose a: ', ensamble_in_paletizado2['pos4'][1])
@@ -606,6 +611,7 @@ def move_to_paletizado():
             move_axis(ensamble_in_paletizado3['pos1'][2])
             move_angle(home_general)
             ensamble_in_revision['pos3'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado3['pos2'][0]:
             print('Ensamble verde a pos 2')
             print('Moviendose a: ', ensamble_in_paletizado3['pos2'][1])
@@ -625,6 +631,7 @@ def move_to_paletizado():
             move_axis(ensamble_in_paletizado3['pos2'][2])
             move_angle(home_general)
             ensamble_in_revision['pos3'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado3['pos3'][0]:
             print('Ensamble verde a pos 3')
             print('Moviendose a: ', ensamble_in_paletizado3['pos3'][1])
@@ -644,10 +651,11 @@ def move_to_paletizado():
             move_axis(ensamble_in_paletizado3['pos3'][2])
             move_angle(home_general)
             ensamble_in_revision['pos3'][0] = False
+            revision_ensamble()
         elif not ensamble_in_paletizado3['pos4'][0]:
             print('Ensamble verde a pos 4')
             print('Moviendose a: ', ensamble_in_paletizado3['pos4'][1])
-            ensamble_in_paletizado1['pos1'][0] = True
+            ensamble_in_paletizado3['pos1'][0] = True
 
             move_axis(ensamble_in_revision['pos3'][2])
             move_axis(ensamble_in_revision['pos3'][3])
@@ -800,7 +808,7 @@ def recepcion_ensambles(ensamble_in_conveyor):
             # move_angle(home_general)
 
             # Tomar fotos para detectar QR del ensamble 
-            
+            move_axis([156.5, 300.8, 329.9, 180, 2.5, 62.6])
             move_axis([240.2, 331.2, 88, -90, 0, 90])
             take_photo()
             print('Tomando foto...')
