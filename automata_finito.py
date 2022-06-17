@@ -1,6 +1,9 @@
 #######################
-# Adán Márquez
-# A00827172@tec.mx
+# Author: Adán Daniel Márquez Hernández
+# E-mail: adanmarquez200@outlook.com
+# 
+# Author: Uzziel Itzak Mesillas Castilla
+# E-mail: A01024223
 #  Autómata finito 
 
 #  MR2007B.502 Gemelo Digital
@@ -793,8 +796,8 @@ def recepcion_ensambles():
                 take_photo()
                 print('Tomando foto...')
             
-                camera_data = get_data_from_camera()
-                camera_qr = camera_data[3]
+                camera_data_2 = get_data_from_camera()
+                camera_qr = camera_data_2[3]
                 if camera_qr == 1:
                     print('El ensamble pertence a la línea de producción')
                     get_coordinates()
