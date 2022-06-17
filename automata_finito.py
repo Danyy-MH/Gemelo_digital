@@ -59,6 +59,7 @@ conveyor_l_p = 906 # [px]
 px_to_mm_y = float(conveyor_l_y/conveyor_l_p)
 px_to_mm_x = float(conveyor_l_x/conveyor_l_p)
 average_intensity = 0
+ensamble_in_conveyor = [False, 0, 0]
 
 # Posiciones generales del robot
 home_general = [0.0, -24.6, -33.1, 0.0, 60.2, -0.1]
@@ -251,7 +252,11 @@ def pick_up_motor():
 
 # Tomar ensamble correcto
 def tom_co_pos(color_motor, color_reductor):
-    #global camera_data
+    global ensamble_in_conveyor
+    if ensamble_in_conveyor[0] == True:
+        ensamble_in_conveyor[0] = False
+        ensamble_in_conveyor[1] = 0
+        ensamble_in_conveyor[2] = 0
     print('State: tom_co_pos')
     print('Moviendo ensamble')
     if (color_motor > 12 and color_motor < 40) and (color_reductor > 12 and color_reductor < 40):
@@ -274,9 +279,11 @@ def tom_co_pos(color_motor, color_reductor):
             if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
                 revision_ensamble()
             else:
-                recepcion_ensambles()
+                recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base roja')
+            ensamble_in_conveyor[1] = color_motor
+            ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
             move_angle(home_general)
 
@@ -301,9 +308,11 @@ def tom_co_pos(color_motor, color_reductor):
             if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
                 revision_ensamble()
             else:
-                recepcion_ensambles()
+                recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base amarilla')
+            ensamble_in_conveyor[1] = color_motor
+            ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
             move_angle(home_general)
             revision_ensamble()
@@ -327,9 +336,11 @@ def tom_co_pos(color_motor, color_reductor):
             if ensamble_in_revision['pos1'][0] == True and ensamble_in_revision['pos2'][0] == True and ensamble_in_revision['pos3'][0] == True:
                 revision_ensamble()
             else:
-                recepcion_ensambles()
+                recepcion_ensambles(ensamble_in_conveyor)
         else:
             print('Ya existe un ensamble en la base verde')
+            ensamble_in_conveyor[1] = color_motor
+            ensamble_in_conveyor[2] = color_reductor
             print('Proceder a revisión de ensambles en las bases')
             move_angle(home_general)
             revision_ensamble()
@@ -343,9 +354,10 @@ def tom_co_pos(color_motor, color_reductor):
         open_gripper()
         move_angle(home_general)
 
-        recepcion_ensambles()
+        recepcion_ensambles(ensamble_in_conveyor)
 
 def take_out_ensamble():
+    global ensamble_in_conveyor
     print('State: take_out_ensamble')
     print('Colocando ensamble fuera de la línea de producción...')
 
@@ -356,16 +368,21 @@ def take_out_ensamble():
     move_angle([-80, -29.9, -31.1, 0, 61, 12.8])
     open_gripper()
     move_angle(home_general)
-    recepcion_ensambles()
+    recepcion_ensambles(ensamble_in_conveyor)
 
 def get_coordinates():
     print('State: get_coordinates')
     move_axis([-68.3, 334.8, 434.4, -180, 0, 90])
     global camera_data
-    print("Cam data inside get_coordinates: ", camera_data)
-    qr_value = camera_data[3]
-    motor_intensity = camera_data[6]
-    reductor_intensity = camera_data[7]
+    if ensamble_in_conveyor[0] == True:
+        qr_value = 1
+        motor_intensity = ensamble_in_conveyor[1]
+        reductor_intensity = ensamble_in_conveyor[2]
+    else:
+        print("Cam data inside get_coordinates: ", camera_data)
+        qr_value = camera_data[3]
+        motor_intensity = camera_data[6]
+        reductor_intensity = camera_data[7]
     
     take_photo()
     print('Tomando fotos...')
@@ -385,7 +402,7 @@ def move_to_paletizado():
     y empaque dichos ensambles
     '''
     global ensamble_in_revision, ensamble_in_paletizado1
-    global ensamble_in_paletizado2, ensamble_in_paletizado3
+    global ensamble_in_paletizado2, ensamble_in_paletizado3, ensamble_in_conveyor
     if ensamble_in_revision['pos1'][0] == True:
         print('Moviendo ensamble rojo a zona de Paletizado')
         # Mover ensamble blanco al grupo de 4
@@ -655,7 +672,7 @@ def move_to_paletizado():
             revision_ensamble()
         ensamble_in_revision['pos3'][0] = False
     print('to recepción de motores')
-    recepcion_ensambles()
+    recepcion_ensambles(ensamble_in_conveyor)
 
 def revision_ensamble():
     '''
@@ -736,9 +753,9 @@ def revision_ensamble():
                 move_angle(home_general)
                 ensamble_in_revision['pos3'][0] = False
         else:
-            recepcion_ensambles()
+            recepcion_ensambles(ensamble_in_conveyor)
 
-def recepcion_ensambles():
+def recepcion_ensambles(ensamble_in_conveyor):
     '''
     Estado en el cual se reciben ensambles de la banda transportadora y son colocados en su base
     correspondiente dependiendo del color de estos ensambles
@@ -746,6 +763,10 @@ def recepcion_ensambles():
     tanto si es motor o reductor, su modelo, y su color
     '''
     print('State: Recepcion')
+
+    if ensamble_in_conveyor[0] == True:
+        get_coordinates()
+
     print('Esperando ensamble en la banda transportadora...')
 
     # Parámetros iniciales del Robot
@@ -769,7 +790,6 @@ def recepcion_ensambles():
         time.sleep(0.5)
 
     # Loop de recepción de ensambles
-
     while True:
         if params['quit']:
             break
@@ -780,7 +800,7 @@ def recepcion_ensambles():
             # move_angle(home_general)
 
             # Tomar fotos para detectar QR del ensamble 
-
+            
             move_axis([240.2, 331.2, 88, -90, 0, 90])
             take_photo()
             print('Tomando foto...')
@@ -836,7 +856,7 @@ def main():
                 print('input error, exit')
                 sys.exit(1)
     print('\n')
-
-    recepcion_ensambles()
+    global ensamble_in_conveyor
+    recepcion_ensambles(ensamble_in_conveyor)
 
 main()
